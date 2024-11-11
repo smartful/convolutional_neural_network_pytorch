@@ -69,19 +69,22 @@ def train_step(model: torch.nn.Module,
                accuracy_fn,
                device: torch.device):
     train_loss, train_acc = 0, 0
+    softmax = nn.Softmax(dim=1)
 
     for batch, (x, y) in enumerate(dataloader):
         model.train()
         # Envoyer les data au GPU
         x, y = x.to(device), y.to(device)
 
+        y_pred_logits = model(x)
         # Calcul de la loss
-        y_pred = model(x)
-        loss = loss_fn(y_pred, y)
+        loss = loss_fn(y_pred_logits, y)
         train_loss += loss
 
         # Calcul de l'accuracy
-        accuracy = accuracy_fn(y_true=y, y_pred=y_pred.argmax(dim=1))
+        y_log_proba = softmax(y_pred_logits)
+        y_pred = torch.argmax(y_log_proba, dim=1)
+        accuracy = accuracy_fn(y_true=y, y_pred=y_pred)
         train_acc += accuracy
 
         optimizer.zero_grad()
@@ -101,28 +104,30 @@ def test_step(model: torch.nn.Module,
                accuracy_fn,
                device: torch.device):
     test_loss, test_acc = 0, 0
+    softmax = nn.Softmax(dim=1)
 
     model.eval()
     with torch.inference_mode():
         for x, y in dataloader:
             x, y = x.to(device), y.to(device)
 
+            y_pred_logits = model(x)
             # Calcul de la loss
-            y_pred = model(x)
-            loss = loss_fn(y_pred, y)
+            loss = loss_fn(y_pred_logits, y)
             test_loss += loss
 
             # Calcul de l'accuracy
-            accuracy = accuracy_fn(y_true=y, y_pred=y_pred.argmax(dim=1))
+            y_log_proba = softmax(y_pred_logits)
+            y_pred = torch.argmax(y_log_proba, dim=1)
+            accuracy = accuracy_fn(y_true=y, y_pred=y_pred)
             test_acc += accuracy
 
         # Calcul de la loss/acc moyenne par batch
         test_loss /= len(dataloader)
         test_acc /= len(dataloader)
         print(f"Test loss: {test_loss:.5f} | Test accuracy: {test_acc:.2f}%\n")
-
         return (test_loss, test_acc)
-    
+
 
 def plot_training_data(typology: str, train_data: list, test_data: list):
     plt.figure()
